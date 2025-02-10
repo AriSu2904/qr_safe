@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() => runApp(const MyApp());
 
@@ -107,44 +108,73 @@ class _QRViewExampleState extends State<QRViewExample> {
       },
     );
 
-    if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
-      // Tampilkan hasil dari VirusTotal (misalnya dideteksi atau aman)
-      final scanResult = jsonResponse['data']['attributes']['last_analysis_stats'];
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('VirusTotal Result'),
-          content: Text('Scan Result: ${scanResult.toString()}'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        ),
-      );
-    } else {
-      _showErrorDialog('Error: Unable to scan the URL with VirusTotal.');
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        final scanResult =
+            jsonResponse['data']['attributes']['last_analysis_stats'];
+        final maliciousCount = scanResult['malicious'] ?? 0;
+        final suspiciousCount = scanResult['suspicious'] ?? 0;
+
+      //[UNSIA] response checking (if there's malicious or suspicious warning pop up will shown)
+        if (maliciousCount > 0 || suspiciousCount > 0) {
+          _showErrorDialog('Warning!',
+              'This URL is not safe!\nThere are $maliciousCount malicious and $suspiciousCount suspicious detections.');
+        } else {
+          //[UNSIA] Showing pop up dialog for safe URL
+          _showSafeUrlDialog(url);
+        }
+      } else {
+        _showErrorDialog('Error: ${response.statusCode}', (response.body).toString());
+      }
+    } catch (e) {
+      _showErrorDialog('Error', e.toString());
     }
-  } catch (e) {
-    _showErrorDialog('Error: $e');
   }
-}
 
+  //[UNSIA] function to launch URL and navigate to browser
+  Future<void> _launchUrl(Uri url) async {
+    if (!await launchUrl(url)) {
+      throw Exception('Could not launch $url');
+    }
+  }
 
-  void _showErrorDialog(String message) {
+  //[UNSIA] parameterize title and message, so error and warning pop up will use same dialog
+  void _showErrorDialog(String title, String message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Error'),
+        title: Text(title),
         content: Text(message),
         actions: <Widget>[
           TextButton(
             child: const Text('OK'),
             onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  //[UNSIA] function to show pop up dialog for safe URL
+  void _showSafeUrlDialog(String url) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Safe URL'),
+        content: Text('This URL is safe. Open in browser?'),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+          TextButton(
+            child: const Text('Open'),
+            onPressed: () {
+              _launchUrl(Uri.parse(url));
               Navigator.of(context).pop();
             },
           ),

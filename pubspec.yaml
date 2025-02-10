@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   qr_code_scanner: ^1.0.0
   http: ^0.13.0
+  #[UNSIA] Add dependency for launch URL in browser
+  url_launcher: ^6.0.0
 
 dev_dependencies:
   flutter_test:
